@@ -1,0 +1,44 @@
+[server]
+enableStaticServing = true
+maxUploadSize = 20
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
+showErrorDetails = "none"
+
+[theme]
+base = "light"
+primaryColor = "#0E5A43"
+backgroundColor = "#F4F6F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#17211D"
+borderColor = "#DCE3DF"
+font = "IBM Plex Sans Arabic, system-ui, sans-serif"
+headingFont = "IBM Plex Sans Arabic, system-ui, sans-serif"
+baseRadius = "8px"
+baseFontSize = 15
+showWidgetBorder = true
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans Arabic"
+url = "app/static/fonts/IBMPlexSansArabic-Regular.woff2"
+weight = 400
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans Arabic"
+url = "app/static/fonts/IBMPlexSansArabic-Medium.woff2"
+weight = 500
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans Arabic"
+url = "app/static/fonts/IBMPlexSansArabic-SemiBold.woff2"
+weight = 600
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans Arabic"
+url = "app/static/fonts/IBMPlexSansArabic-Bold.woff2"
+weight = 700
