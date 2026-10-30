@@ -1,0 +1,1 @@
+﻿invoice_id,debtor_id,debtor_type,contract_id,source_id,invoice_date,due_date,amount_due_sar,amount_paid_sar,status,expected_baseline_collection_sar,data_label
