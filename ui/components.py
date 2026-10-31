@@ -42,7 +42,7 @@ def kpi_money(label: str, amount: float, tone: str = "", extra: str = "") -> str
     """القيمة مختصرة بالمليون، والقيمة الدقيقة ظاهرة تحتها (تعمل على الجوال دون تمرير مؤشر)."""
     num, unit = money_parts(amount)
     val = f"{esc(num)}<small>{esc(unit)}</small>"
-    sub = "القيمة الدقيقة: " + esc(fmt_sar(amount)) + (f"<br>{extra}" if extra else "")
+    sub = esc(fmt_sar(amount)) + (f"<br>{extra}" if extra else "")
     return kpi(label, val, sub, tone, title=fmt_sar(amount))
 
 
@@ -109,20 +109,30 @@ def delta_html(delta, note_txt: str) -> str:
     return f'<span class="{cls}">{arrow} {esc(fmt_points(delta))}</span> <span class="na">({esc(note_txt)})</span>'
 
 
-def dept_card(r) -> str:
-    unmet = "".join(tag(u, "gray") for u in r["unmet"]) or '<span class="na">لا يوجد</span>'
+def short_reason(r, s) -> str:
+    """سبب تصنيف مختصر بسطر واحد."""
     if r["status"] == "incomplete":
-        unmet_line = ""
+        return "لم تُدخل بيانات هذا الشهر" if not any(x["target"] is not None or x["actual"] is not None for x in r["details"]) else "ناقص: " + "، ".join(r["missing"])
+    rng = {"good": f"{s.green:g}% فأعلى", "medium": f"بين {s.yellow:g}% و{s.green:g}%", "intervene": f"أقل من {s.yellow:g}%"}[r["status"]]
+    return f"الدرجة {rng}"
+
+
+def dept_card(r, s) -> str:
+    if r["delta"] is None or (isinstance(r["delta"], float) and math.isnan(r["delta"])):
+        change = '<span class="na">لا توجد مقارنة بالشهر السابق</span>'
     else:
-        unmet_line = f'<div class="dstats"><span class="na">مؤشرات لم تحقق مستهدفها:</span> {unmet}</div>'
+        d = r["delta"]
+        cls = "delta-up" if d >= 0.05 else ("delta-down" if d <= -0.05 else "delta-flat")
+        arrow = "▲" if d >= 0.05 else ("▼" if d <= -0.05 else "■")
+        change = f'<span class="{cls}">{arrow} {esc(fmt_points(d))}</span> <span class="na">عن الشهر السابق</span>'
+    short = {"إنجاز الخطة": "الخطة", "الالتزام بالوقت": "الوقت", "جودة المخرجات": "الجودة"}
+    unmet = "، ".join(short.get(u, u) for u in r["unmet"])
+    unmet_line = f'<div class="na">لم يحقق المستهدف: {esc(unmet)}</div>' if (unmet and r["status"] != "incomplete") else ""
     return (
         f'<div class="dcard s-{r["status"]}">'
-        f'<div class="dtop"><div class="dname">{esc(r["dept_name"])}<small>المعرف الثابت: {esc(r["dept_id"])}</small></div>{pill(r["status"])}</div>'
+        f'<div class="dtop"><div class="dname">{esc(r["dept_name"])}</div>{pill(r["status"])}</div>'
         f'<div class="dmid">{ring(r["score"], r["status"])}<div class="dstats">'
-        f'<div>درجة الأداء: <b>{"—" if r["score"] is None or r["score"] != r["score"] else rich(fmt_pct(r["score"]))}</b></div>'
-        f'<div>التغير: {delta_html(r["delta"], r["compare_note"])}</div></div></div>'
-        f'{unmet_line}'
-        f'<div class="dreason"><b>سبب التصنيف:</b> {rich(r["reason"])}</div>'
+        f'<div>{rich(short_reason(r, s))}</div><div>{change}</div>{unmet_line}</div></div>'
         f"</div>"
     )
 

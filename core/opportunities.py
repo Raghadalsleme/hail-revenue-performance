@@ -83,19 +83,19 @@ def candidate_uses(asset: pd.Series) -> list[UseRule]:
     uses: list[UseRule] = []
     if t == "أرض فضاء":
         if z in ("تجاري", "استثماري متعدد"):
-            uses.append(UseRule("land_commercial", "طرح استثماري تجاري (تأجير أرض طويل الأجل)", "أرض تجارية", "م²", 150, 180, 2, 3, "lease_land"))
+            uses.append(UseRule("land_commercial", "طرح الأرض للاستثمار", "أرض تجارية", "م²", 150, 180, 2, 3, "lease_land"))
             if bool(asset["on_main_road"]) and float(asset["frontage_m"]) >= 40:
-                uses.append(UseRule("billboards", "استثمار الواجهة كموقع لوحات إعلانية", "لوحة إعلانية", "لوحة", 90, 0, 3, 2, "billboards"))
+                uses.append(UseRule("billboards", "لوحات إعلانية على الواجهة", "لوحة إعلانية", "لوحة", 90, 0, 3, 2, "billboards"))
         elif z == "خدمي":
-            uses.append(UseRule("land_service", "استثمار خدمي (مرافق تعليمية/صحية أهلية)", "أرض خدمية", "م²", 150, 180, 2, 3, "lease_land"))
+            uses.append(UseRule("land_service", "استثمار خدمي للأرض", "أرض خدمية", "م²", 150, 180, 2, 3, "lease_land"))
         elif z == "ترفيهي":
-            uses.append(UseRule("land_seasonal", "تأجير موسمي لفعاليات وأنشطة ترفيهية", "أرض ترفيهية (موسمي)", "م²", 60, 0, 3, 3, "lease_land"))
+            uses.append(UseRule("land_seasonal", "تأجير موسمي للفعاليات", "أرض ترفيهية (موسمي)", "م²", 60, 0, 3, 3, "lease_land"))
     elif t == "محل تجاري":
-        uses.append(UseRule("retail_units", "تأجير المساحات التجارية الشاغرة", "محل تجاري", "م²", 75, 0, 4, 2, "lease_units"))
+        uses.append(UseRule("retail_units", "تأجير المحلات الشاغرة", "محل تجاري", "م²", 75, 0, 4, 2, "lease_units"))
     elif t == "مبنى مكاتب":
-        uses.append(UseRule("office_units", "تأجير المساحات المكتبية الشاغرة", "مكاتب", "م²", 90, 0, 3, 2, "lease_units"))
+        uses.append(UseRule("office_units", "تأجير المكاتب الشاغرة", "مكاتب", "م²", 90, 0, 3, 2, "lease_units"))
     elif t == "كشك":
-        uses.append(UseRule("kiosk", "تأجير الكشك لنشاط تجاري خفيف", "كشك", "م²", 45, 0, 4, 1, "lease_units"))
+        uses.append(UseRule("kiosk", "تأجير الأكشاك", "كشك", "م²", 45, 0, 4, 1, "lease_units"))
     return uses
 
 
@@ -276,7 +276,7 @@ def detect_opportunities(data: RevenueData, params: dict | None = None) -> tuple
                 "ref_type": "أصل",
                 "ref_ids": aid,
                 "ref_display": f"أصل {aid}",
-                "title": f"{u.label} — {a['asset_name']}",
+                "title": f"{u.label}: {a['asset_name']}",
                 "use_key": u.key,
                 "reason": reason,
                 "evidence": evidence,
@@ -384,7 +384,7 @@ def detect_opportunities(data: RevenueData, params: dict | None = None) -> tuple
             "ref_type": "عقد",
             "ref_ids": cid,
             "ref_display": f"عقد {cid} · أصل {c['asset_id']}",
-            "title": f"مراجعة قيمة العقد {cid} عند التجديد — {a['asset_name']}",
+            "title": f"رفع قيمة العقد {cid} عند التجديد",
             "use_key": "renewal",
             "reason": f"العقد ينتهي في {end.isoformat()} (خلال {(end - snap).days} يومًا من تاريخ اللقطة) وقيمته أقل من المرجع السوقي بنسبة {fmt_pct(below * 100)}",
             "evidence": evidence,
@@ -459,8 +459,8 @@ def detect_opportunities(data: RevenueData, params: dict | None = None) -> tuple
             inv_txt = "، ".join(inv[:5]) + (f" (+{len(inv) - 5})" if len(inv) > 5 else "")
             is_pool = gid == "POOL"
             title = (
-                f"حملة تحصيل جماعية لصغار المدينين ({g['debtor_id'].nunique()} مدينًا)"
-                if is_pool else f"خطة تحصيل مستحقات المدين {gid} ({g['debtor_type'].iloc[0]})"
+                f"حملة تحصيل لصغار المدينين ({g['debtor_id'].nunique()} مدينًا)"
+                if is_pool else f"تحصيل متأخرات المدين {gid}"
             )
             cd = int(p["collection_campaign_days"])
             tf_expr = f"({avail_days} ÷ {cd})" if avail_days < cd else "1"

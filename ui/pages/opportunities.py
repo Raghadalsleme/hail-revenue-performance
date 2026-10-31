@@ -1,119 +1,106 @@
-"""فرص الإيرادات: نتائج محرك التحليل مع الأدلة وطريقة الحساب والافتراضات والموافقات."""
+"""الفرص: اختيار الفرص والسيناريو، والإيراد الإضافي والفجوة المتبقية."""
 from __future__ import annotations
 
 import streamlit as st
 
+from core.config import SCENARIOS_DEFAULT
 from core.formatting import esc, fmt_int, fmt_sar
-from core.opportunities import EASE_LABELS, RISK_LABELS, TYPE_LABELS
+from core.opportunities import EASE_LABELS, RISK_LABELS
+from core.revenue import auto_select, compute_kpis, scenario_result
 
-from ..components import calc_block, html, kpi, kpi_grid, kpi_money, note, rich, section, table, tag
+from ..components import calc_block, html, kpi, kpi_grid, kpi_money, note, rich, table
 from ..state import opportunities, ss
 
+SHORT_TYPE = {"lease": "تأجير", "renewal": "تجديد عقد", "collection": "تحصيل"}
 
-def _weights_editor():
-    with st.expander("معادلة ترتيب الأولوية والأوزان (قابلة للتعديل)", expanded=False):
-        html('<div class="note info">'
-             "<b>درجة الأولوية</b> = (و<sub>1</sub> × مساهمة السنة المعيارية + و<sub>2</sub> × السهولة المعيارية + و<sub>3</sub> × عكس المخاطر) ÷ (و<sub>1</sub>+و<sub>2</sub>+و<sub>3</sub>)"
-             "<ul><li>مساهمة السنة المعيارية = مساهمة الفرصة حتى نهاية السنة ÷ أعلى مساهمة بين الفرص × 100</li>"
-             "<li>السهولة المعيارية = (السهولة − 1) ÷ 4 × 100، وعكس المخاطر = (5 − المخاطر) ÷ 4 × 100 (المقياسان من 1 إلى 5)</li>"
-             "<li>الدرجة نسبية للمقارنة بين الفرص الحالية فقط، <b>وليست احتمال نجاح</b>.</li></ul></div>")
-        w = ss.priority_weights
-        c1, c2, c3 = st.columns(3)
-        a = c1.number_input("وزن مساهمة السنة %", 0, 100, int(w["contribution"]), 5, key="w_contrib")
-        b = c2.number_input("وزن سهولة التنفيذ %", 0, 100, int(w["ease"]), 5, key="w_ease")
-        c = c3.number_input("وزن انخفاض المخاطر %", 0, 100, int(w["risk"]), 5, key="w_risk")
-        if a + b + c == 0:
-            st.error("لا يمكن أن تكون كل الأوزان صفرًا — أُبقيت الأوزان السابقة.")
-        else:
-            if (a, b, c) != (w["contribution"], w["ease"], w["risk"]):
-                ss.priority_weights = {"contribution": a, "ease": b, "risk": c}
-                st.rerun()
-            if a + b + c != 100:
-                st.caption(f"مجموع الأوزان {a + b + c}% — تُطبّع تلقائيًا بالقسمة على المجموع.")
+
+def _set_selection(ids):
+    ss.selection = list(ids)
+    ss.sel_version += 1
+
+
+def _toggle(oid):
+    key = f"sel_{oid}_{ss.sel_version}"
+    cur = list(ss.selection)
+    if ss[key] and oid not in cur:
+        cur.append(oid)
+    elif not ss[key] and oid in cur:
+        cur.remove(oid)
+    ss.selection = cur
 
 
 def render():
-    _weights_editor()
+    data = ss.rev_data
+    s = data.settings
+    k = compute_kpis(data)
     opps, excluded = opportunities()
-    s = ss.rev_data.settings
-    if opps.empty:
-        note("<b>لم يكتشف المحرك أي فرصة</b> وفق البيانات والقواعد الحالية. راجع قائمة المستبعد أدناه، أو حدّث بيانات الأصول والعقود والمستحقات.", "warn")
-    rec = opps[opps["nature"] == "recurring"] if not opps.empty else opps
-    one = opps[opps["nature"] == "one_time"] if not opps.empty else opps
+
+    c1, c2, c3 = st.columns([2.2, 1, 1])
+    with c1:
+        sc = st.segmented_control("السيناريو", list(SCENARIOS_DEFAULT), default=ss.scenario, key="sc_pick",
+                                  format_func=lambda x: f"{SCENARIOS_DEFAULT[x]['label']} {ss.multipliers[x]:.0%}")
+        if sc and sc != ss.scenario:
+            ss.scenario = sc
+            st.rerun()
+    mult = ss.multipliers[ss.scenario]
+    with c2:
+        st.write("")
+        if st.button("اختيار الأعلى أولوية", type="primary", width="stretch"):
+            _set_selection(auto_select(opps, k, mult, s.financial_basis))
+            st.rerun()
+    with c3:
+        st.write("")
+        if st.button("إلغاء الكل", width="stretch"):
+            _set_selection([])
+            st.rerun()
+
+    res = scenario_result(opps, ss.selection, mult, k, s.financial_basis)
     kpi_grid([
-        kpi("الفرص المكتشفة", f"{len(opps)}", f"تأجير {int((opps['opp_type'] == 'lease').sum()) if len(opps) else 0} · تجديد {int((opps['opp_type'] == 'renewal').sum()) if len(opps) else 0} · تحصيل {int((opps['opp_type'] == 'collection').sum()) if len(opps) else 0}", "primary"),
-        kpi_money("الإيراد السنوي المحتمل (سنة تشغيل كاملة)", float(rec.groupby("conflict_group")["annual_potential"].max().sum()) if len(rec) else 0.0, "ok", extra="متكرر — أعلى بديل واحد لكل أصل (لا جمع للمتعارض)"),
-        kpi_money("الممكن من الإيراد المتكرر حتى نهاية السنة", float(rec.groupby("conflict_group")["in_year"].max().sum()) if len(rec) else 0.0, "gold", extra="بعد مهلة التنفيذ وتواريخ التجديد"),
-        kpi_money("تحصيل لمرة واحدة ممكن حتى نهاية السنة", float(one["in_year"].sum()) if len(one) else 0.0, "neutral", extra="بعد طرح التحصيل المتوقع أصلًا"),
-        kpi("عناصر مستبعدة", f"{len(excluded)}", "أصول مقيدة أو غير مناسبة، عقود غير قابلة للمراجعة، ومطالبات متنازع عليها", "alert"),
+        kpi("الفرص المختارة", f"{len(res['selection'].kept)} من {len(opps)}", "", "primary"),
+        kpi_money("الإيراد الإضافي هذه السنة", res["contribution"], "ok"),
+        kpi_money("الفجوة المتبقية", res["remaining_gap"], "alert" if res["remaining_gap"] > 0 else "ok"),
     ])
+    if res["remaining_gap"] > 0:
+        note("الفرص المختارة <b>لا تكفي</b> لسد الفجوة هذه السنة.", "warn")
+    if res["selection"].dropped:
+        note("لم تُحتسب فرص متعارضة على الأصل نفسه: " + "، ".join(esc(a) for a, _ in res["selection"].dropped), "bad")
 
     if opps.empty:
-        _excluded(excluded)
-        _method_note()
-        return
-    section("الفرص مرتبة حسب درجة الأولوية", "المساهمة حتى نهاية السنة هي ما يدخل في سد فجوة هذه السنة")
-    types = st.multiselect("تصفية حسب نوع الفرصة", list(TYPE_LABELS), default=list(TYPE_LABELS), format_func=lambda x: TYPE_LABELS[x], key="opp_types")
-    view = opps[opps["opp_type"].isin(types)]
-    sel = set(ss.selection)
-    rows, rc = [], []
-    for o in view.itertuples():
-        rows.append([
-            f"{o.rank}", f"<b>{esc(o.opp_id)}</b><div class='muted'>{esc(o.ref_display)}</div>",
-            f"{esc(o.title)}<div class='muted'>{esc(o.type_label)}</div>",
-            tag(o.nature_label, "gold" if o.nature == "one_time" else ""),
-            fmt_int(o.in_year),
-            fmt_int(o.annual_potential) if o.nature == "recurring" else f"{fmt_int(o.one_time_total)}<div class='muted'>إجمالي الحملة</div>",
-            f"<span class='ltr'>{o.effective_date.isoformat()}</span><div class='muted'>{o.in_year_days} يومًا ضمن السنة</div>",
-            f"{EASE_LABELS[o.ease]}<div class='muted'>مخاطر {RISK_LABELS[o.risk]}</div>",
-            f"<b>{o.priority_score:.1f}</b>",
-        ])
-        rc.append("sel" if o.opp_id in sel else "")
-    html(table([("#", "c"), ("المعرف والمرجع", ""), ("الفرصة", ""), ("الطبيعة", ""), ("حتى نهاية السنة (ريال)", "num"), ("سنوي محتمل (ريال)", "num"),
-                ("بدء الأثر", ""), ("السهولة / المخاطر", ""), ("الأولوية", "c")], rows, rc))
-    st.caption("الصفوف المظللة = مختارة حاليًا في صفحة السيناريوهات. فرص الأصل الواحد بدائل متعارضة ولا تُجمع معًا.")
+        note("لا توجد فرص في البيانات الحالية.", "info")
+    else:
+        det = res["detail"].set_index("opp_id") if not res["detail"].empty else None
+        html('<div class="ophead"><span>الفرصة</span><span>النوع</span><span>هذه السنة</span><span>سنويًا / الإجمالي</span></div>')
+        for o in opps.itertuples():
+            with st.container(key=f"oprow_{o.opp_id}"):
+                a, b, c, d = st.columns([3.4, 1.1, 1.3, 1.3], vertical_alignment="center")
+                a.checkbox(o.title, value=o.opp_id in ss.selection, key=f"sel_{o.opp_id}_{ss.sel_version}", on_change=_toggle, args=(o.opp_id,))
+                b.html(f'<span class="tag {"gold" if o.nature == "one_time" else ""}">{SHORT_TYPE[o.opp_type]}</span>')
+                v = det.at[o.opp_id, "in_year"] if (det is not None and o.opp_id in det.index) else o.in_year
+                c.html(f'<div class="opval">{fmt_int(v)}<small>ريال</small></div>')
+                total = o.annual_potential if o.nature == "recurring" else o.one_time_total
+                d.html(f'<div class="opval">{fmt_int(total)}<small>{"سنويًا" if o.nature == "recurring" else "مرة واحدة"}</small></div>')
 
-    section("تفاصيل فرصة")
-    if view.empty:
-        note("لا توجد فرص ضمن الأنواع المختارة.", "info")
-        _excluded(excluded)
-        _method_note()
-        return
-    oid = st.selectbox("اختر فرصة لعرض الأدلة والحساب", list(view["opp_id"]), format_func=lambda x: f"{x} — {view.set_index('opp_id').at[x, 'title']}", key="opp_detail")
-    o = opps.set_index("opp_id").loc[oid]
-    ev = "".join(f"<dt>{esc(a)}</dt><dd>{rich(b)}</dd>" for a, b in o["evidence"])
-    ass = "".join(f"<li>{rich(a)}</li>" for a in o["assumptions"])
-    apr = "".join(f"<li>{esc(a)}</li>" for a in o["approvals"])
-    in_gap = "يُحتسب في سد الفجوة" if (o["nature"] == "recurring" or s.financial_basis == "cash") else "لا يُحتسب في سد الفجوة على أساس الاستحقاق (أثر نقدي فقط)"
-    html(f"""<div class="opp"><h4>{esc(oid)} — {esc(o['title'])}</h4>
-<div class="meta">{tag(o['type_label'])}{tag(o['nature_label'], 'gold' if o['nature'] == 'one_time' else '')}{tag('الأولوية ' + format(o['priority_score'], '.1f'), 'gray')}{tag('السهولة: ' + EASE_LABELS[o['ease']], 'gray')}{tag('المخاطر: ' + RISK_LABELS[o['risk']], 'gray')}{tag(in_gap, 'gray')}</div>
-<p style="margin:0 0 6px"><b>سبب الاقتراح:</b> {rich(o['reason'])}</p>
-<div class="grid2">
- <div><h5>الأدلة والقيم المستخدمة من البيانات</h5><dl>{ev}</dl></div>
- <div><h5>طريقة حساب الإيراد</h5>{calc_block(o['method'])}
-  <dl style="margin-top:10px"><dt>حتى نهاية السنة</dt><dd><b>{esc(fmt_sar(o['in_year']))}</b></dd>
-  <dt>{'سنة تشغيل كاملة' if o['nature'] == 'recurring' else 'إجمالي الحملة (لمرة واحدة)'}</dt><dd>{esc(fmt_sar(o['annual_potential'] if o['nature'] == 'recurring' else o['one_time_total']))}</dd>
-  <dt>مدة التنفيذ المتوقعة</dt><dd>{o['lead_days']} يومًا — بدء الأثر <bdi dir="ltr">{o['effective_date'].isoformat()}</bdi></dd>
-  <dt>السقف في السيناريوهات</dt><dd>{esc(o['cap_note'])}</dd>
-  <dt>مجموعة التعارض</dt><dd>{esc(o['conflict_group'])}</dd></dl></div>
-</div>
-<div class="grid2"><div><h5>الافتراضات</h5><ul>{ass}</ul></div><div><h5>المراجعات والموافقات المطلوبة</h5><ul>{apr}</ul></div></div>
-<div class="disclaimer">هذا اقتراح تحليلي وليس موافقة تنظيمية أو إذنًا بالتنفيذ. التقدير مبني على بيانات تجريبية وافتراضات قابلة للتعديل، ويحتاج تحقق الجهات المختصة قبل أي إجراء.</div>
-</div>""")
-    _excluded(excluded)
-    _method_note()
+        with st.expander("تفاصيل فرصة"):
+            oid = st.selectbox("الفرصة", list(opps["opp_id"]), format_func=lambda x: opps.set_index("opp_id").at[x, "title"], key="opp_detail")
+            o = opps.set_index("opp_id").loc[oid]
+            ev = "".join(f"<dt>{esc(a)}</dt><dd>{rich(b)}</dd>" for a, b in o["evidence"])
+            html(f"""<div class="opp"><p style="margin:0 0 8px"><b>السبب:</b> {rich(o['reason'])}</p>
+<div class="grid2"><div><h5>الحساب</h5>{calc_block(o['method'])}</div><div><h5>الأدلة من البيانات</h5><dl>{ev}</dl></div></div>
+<div class="grid2"><div><h5>الافتراضات</h5><ul>{''.join(f'<li>{rich(x)}</li>' for x in o['assumptions'])}</ul></div>
+<div><h5>الموافقات المطلوبة</h5><ul>{''.join(f'<li>{esc(x)}</li>' for x in o['approvals'])}</ul>
+<p class="muted" style="margin-top:6px">السهولة: {EASE_LABELS[o['ease']]} · المخاطر: {RISK_LABELS[o['risk']]} · بدء الأثر: <bdi dir="ltr">{o['effective_date'].isoformat()}</bdi></p></div></div>
+<div class="disclaimer">اقتراح تحليلي وليس موافقة أو إذنًا بالتنفيذ.</div></div>""")
 
+    with st.expander(f"المستبعد ولماذا ({len(excluded)})"):
+        html(table([("المرجع", ""), ("السبب", "")], [[esc(a), esc(c)] for a, b, c in excluded.itertuples(index=False)]))
 
-def _method_note():
-    """ملاحظة المنهجية في آخر الصفحة بدل أعلاها."""
-    note("<b>لا يوجد نموذج تعلم آلة مدرب في هذا الإصدار.</b> الفرص مستخرجة بقواعد تحليلية قابلة للتفسير من بيانات الأصول والعقود والمستحقات والمراجع السوقية، "
-         "ولكل فرصة أدلتها وطريقة حسابها. لم تُدرَّب نماذج على البيانات التجريبية لأن دقتها لن تدل على صلاحية حقيقية. الاقتراح تحليلي وليس موافقة تنظيمية أو إذنًا بالتنفيذ، "
-         "والإيراد المعروض قبل خصم تكاليف التنفيذ والتشغيل (إيراد وليس ربحًا).", "info")
-
-
-def _excluded(excluded):
-    with st.expander(f"ما الذي استُبعد ولماذا ({len(excluded)})", expanded=False):
-        if excluded.empty:
-            st.write("لا توجد عناصر مستبعدة.")
-        else:
-            html(table([("المرجع", ""), ("النوع", ""), ("سبب الاستبعاد", "")], [[esc(a), esc(b), esc(c)] for a, b, c in excluded.itertuples(index=False)]))
+    with st.expander("كيف تُحسب الفرص والترتيب؟"):
+        w = ss.priority_weights
+        html('<div class="note info"><ul>'
+             "<li><b>تأجير:</b> المساحة × الإيجار المرجعي × الإشغال − الإيراد الحالي.</li>"
+             "<li><b>تجديد:</b> الفرق بين القيمة المرجعية وقيمة العقد، ولا يُحتسب قبل تاريخ التجديد.</li>"
+             "<li><b>تحصيل:</b> الرصيد غير المسدد × نسبة استرداد حسب عمر الدين، بعد طرح المتوقع أصلًا.</li>"
+             "<li><b>هذه السنة</b> = ما يتحقق بعد مهلة التنفيذ حتى 31 ديسمبر فقط.</li>"
+             f"<li><b>الترتيب:</b> {w['contribution']}% مساهمة هذه السنة + {w['ease']}% السهولة + {w['risk']}% انخفاض المخاطر (درجة نسبية، ليست احتمال نجاح).</li>"
+             "<li><b>السيناريو:</b> 70% أو 100% أو 120% من التقدير، بسقوف منطقية. افتراضات وليست توقعات مؤكدة.</li>"
+             "<li>قواعد تحليلية قابلة للتفسير — لا يوجد نموذج ذكاء اصطناعي مدرب.</li></ul></div>")

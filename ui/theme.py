@@ -9,7 +9,7 @@ from core.config import APP_NAME_AR, APP_NAME_EN, APP_VERSION, ORG_NAME_AR, ORG_
 from core.formatting import date_ar, esc
 
 from .components import html, logo_data_uri
-from .state import ss, storage_label
+from .state import ss
 
 CSS = (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
 
@@ -29,12 +29,9 @@ def header():
     html(f"""
 <header class="gov-header full-bleed">
   <div class="gov-brand">{brand}<div class="gov-sep"></div>
-    <div class="gov-title"><h1>{APP_NAME_AR}</h1><p>{APP_NAME_EN}</p></div>
+    <div class="gov-title"><h1>{APP_NAME_AR}</h1></div>
   </div>
-  <div class="gov-meta">
-    <span>بيانات الإيرادات حتى {date_ar(s.snapshot_date)}</span>
-    <span>حفظ بيانات الأداء: {esc(storage_label())}</span>
-  </div>
+  <div class="gov-meta"><span>البيانات حتى {date_ar(s.snapshot_date)}</span></div>
 </header>""")
 
 
@@ -57,18 +54,10 @@ if(el&&el.parentElement){el.scrollIntoView({block:'nearest',inline:'center'});}}
 
 
 def page_head(page: dict):
-    html(f"""<div class="page-head"><div class="crumb"><span>المنصة</span><span class="sep">/</span><span>{esc(page['group'])}</span>
-<span class="sep">/</span><b>{esc(page['label'])}</b></div><h2>{esc(page['title'])}</h2><p>{esc(page['desc'])}</p></div>""")
+    html(f"""<div class="page-head"><div class="crumb"><span>المنصة</span><span class="sep">/</span><b>{esc(page['label'])}</b></div>
+<h2>{esc(page['title'])}</h2><p>{esc(page['desc'])}</p></div>""")
 
 
 def footer():
-    """حالة النظام تُعرض في آخر الصفحة بدل الشريط العلوي (بناءً على طلب المستخدم)، دون حذفها."""
-    mode = "وضع العرض: تُقبل البيانات التجريبية فقط" if demo_mode() else "وضع داخلي: يقبل بيانات موسومة كحقيقية"
-    html(f"""<div class="gov-footer">
-  <div class="gov-footer-notes">
-    <span><b>{PROTOTYPE_NOTICE}</b> — الإصدار {APP_VERSION}</span>
-    <span>{SYNTHETIC_NOTICE}</span>
-    <span>لا يوجد نموذج تعلم آلة مدرب في هذا الإصدار؛ النتائج مبنية على قواعد تحليلية قابلة للتفسير وافتراضات موضحة في صفحة «المنهجية».</span>
-  </div>
-  <div class="gov-footer-meta"><span>{APP_NAME_AR}</span><span>{mode}</span></div>
-</div>""")
+    """سطر واحد في آخر الصفحة: حالة النظام والبيانات."""
+    html(f"""<div class="gov-footer"><span>{PROTOTYPE_NOTICE} · الإصدار {APP_VERSION}</span><span>بيانات تجريبية لا تمثل أرقام الأمانة · لا يوجد نموذج ذكاء اصطناعي مدرب</span></div>""")

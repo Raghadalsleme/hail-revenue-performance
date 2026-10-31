@@ -14,26 +14,14 @@ st.set_page_config(
 )
 
 from ui import state, theme  # noqa: E402
-from ui.pages import (data_manage, methodology, opportunities, performance_dashboard, performance_entry, reports,  # noqa: E402
-                      revenue_dashboard, scenarios)
+from ui.pages import opportunities, performance_dashboard, performance_entry, reports, revenue_dashboard  # noqa: E402
 
 PAGES = [
-    {"key": "revenue", "label": "لوحة الإيرادات", "group": "تنمية الإيرادات", "title": "لوحة الإيرادات",
-     "desc": "المستهدف السنوي والمحقق حتى تاريخ اللقطة والفجوة، والإيرادات حسب المصدر، ومساهمة الفرص المختارة في تقليص الفجوة.", "render": revenue_dashboard.render},
-    {"key": "opportunities", "label": "فرص الإيرادات", "group": "تنمية الإيرادات", "title": "محرك اكتشاف فرص الإيرادات",
-     "desc": "فرص مستخرجة من بيانات الأصول والعقود والمستحقات بقواعد قابلة للتفسير، لكل فرصة أدلتها وطريقة حسابها وافتراضاتها والموافقات المطلوبة.", "render": opportunities.render},
-    {"key": "scenarios", "label": "السيناريوهات", "group": "تنمية الإيرادات", "title": "السيناريوهات واختيار الفرص",
-     "desc": "اختر الفرص أو دع النظام يختار الأعلى أولوية، وجرّب السيناريو المتحفظ والمتوسط والمتفائل لرؤية الإيراد الإضافي والفجوة المتبقية أو الفائض.", "render": scenarios.render},
-    {"key": "performance", "label": "أداء الإدارات", "group": "متابعة الأداء", "title": "لوحة متابعة أداء الأقسام",
-     "desc": "متابعة شهرية لأقسام الإدارة العامة: الدرجة والحالة وسبب التصنيف والتغير عن الشهر السابق والمؤشرات غير المحققة.", "render": performance_dashboard.render},
-    {"key": "perf_entry", "label": "إدخال بيانات الأداء", "group": "متابعة الأداء", "title": "إدخال بيانات الأداء وإدارتها",
-     "desc": "إدخال أو تعديل شهر، وتعديل أسماء الإدارات والأقسام بمعرفات ثابتة، واستيراد CSV/Excel، والقوالب والنسخ الاحتياطي.", "render": performance_entry.render},
-    {"key": "data", "label": "البيانات والإعدادات", "group": "تنمية الإيرادات", "title": "بيانات الإيرادات والإعدادات",
-     "desc": "إعدادات اللقطة والأساس المالي، وافتراضات محرك الفرص، واستيراد بيانات الإيرادات مع التحقق، والقوالب وقاموس البيانات.", "render": data_manage.render},
-    {"key": "reports", "label": "التقارير", "group": "التقارير", "title": "التقارير والتصدير",
-     "desc": "تقرير PDF عربي وملف Excel لفرص الإيرادات والسيناريو المختار، وملخص أداء الشهر والإدارة بصيغتي Excel وPDF.", "render": reports.render},
-    {"key": "method", "label": "المنهجية", "group": "عن المنصة", "title": "المنهجية والافتراضات وحدود النموذج",
-     "desc": "كيف تُحسب الفجوة والفرص والسيناريوهات ودرجات الأداء، وما الذي يلزم قبل أي استخدام رسمي.", "render": methodology.render},
+    {"key": "revenue", "label": "الإيرادات", "title": "الإيرادات", "desc": "المستهدف والمحقق والفجوة.", "render": revenue_dashboard.render},
+    {"key": "opportunities", "label": "الفرص", "title": "فرص زيادة الإيرادات", "desc": "اختر الفرص والسيناريو لترى أثرها على الفجوة.", "render": opportunities.render},
+    {"key": "performance", "label": "أداء الأقسام", "title": "أداء الأقسام", "desc": "متابعة شهرية لأقسام الإدارة العامة.", "render": performance_dashboard.render},
+    {"key": "entry", "label": "إدخال البيانات", "title": "إدخال البيانات", "desc": "إدخال نتائج شهر، تعديل الأقسام، ورفع الملفات.", "render": performance_entry.render},
+    {"key": "reports", "label": "التقارير", "title": "التقارير", "desc": "تنزيل التقارير بصيغة PDF وExcel.", "render": reports.render},
 ]
 
 state.init()

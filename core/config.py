@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "2.0.0"
 APP_NAME_AR = "منصة تنمية الإيرادات البلدية ومتابعة أداء الإدارات"
 APP_NAME_EN = "Smart Municipal Revenue Growth & Department Performance System"
 ORG_NAME_AR = "أمانة منطقة حائل"

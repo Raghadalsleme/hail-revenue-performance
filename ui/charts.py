@@ -191,3 +191,28 @@ def status_heatmap(t: pd.DataFrame, s) -> go.Figure:
     fig.update_xaxes(autorange="reversed", side="top", showgrid=False, tickangle=0, title=dict(text=xtitle, font=dict(size=12, color=BRAND["muted"]), standoff=4))
     fig.update_yaxes(side="right", autorange="reversed", showgrid=False, ticklabelstandoff=8)
     return fig
+
+
+def gap_simple(k: dict, recurring: float, one_time: float, basis: str) -> go.Figure:
+    """شريط واحد يبدأ من الصفر: المحقق + المتوقع أصلًا + الفرص المختارة + المتبقي = المستهدف."""
+    counted_one = one_time if basis == "cash" else 0.0
+    opps = recurring + counted_one
+    remaining = max(0.0, k["target"] - k["realized"] - k["baseline_remaining"] - opps)
+    parts = [
+        ("المحقق", k["realized"], BRAND["green"], "#FFFFFF"),
+        ("متوقع أصلًا", k["baseline_remaining"], "#5E9C80", "#FFFFFF"),
+        ("الفرص المختارة", opps, BRAND["gold"], "#FFFFFF"),
+        ("المتبقي", remaining, "#F3D3CF", "#B42318"),
+    ]
+    fig = go.Figure()
+    total = sum(p[1] for p in parts) or 1
+    for name, v, col, tc in parts:
+        fig.add_bar(y=[""], x=[m(v)], orientation="h", name=f"{name} ({m(v):,.1f})", marker=dict(color=col, line=dict(color="#FFFFFF", width=2)),
+                    text=[f"{m(v):,.1f}" if v / total >= 0.06 else ""], textposition="inside", insidetextanchor="middle",
+                    textfont=dict(size=13, color=tc), customdata=[fmt_sar(v)], hovertemplate=name + ": %{customdata}<extra></extra>")
+    fig.add_vline(x=m(k["target"]), line=dict(color=BRAND["gold"], width=2, dash="dash"))
+    base_layout(fig, height=170, margin=dict(l=10, r=10, t=0, b=24))
+    fig.update_layout(barmode="stack", bargap=0.2, legend=dict(orientation="h", y=-0.35, yanchor="top", x=1, xanchor="right"))
+    fig.update_xaxes(autorange="reversed", title=dict(text="مليون ريال", font=dict(size=11.5, color=BRAND["muted"])))
+    fig.update_yaxes(showticklabels=False, showgrid=False)
+    return fig
